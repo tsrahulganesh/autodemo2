@@ -8,7 +8,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class LoginTestcase1 {
+public class LoginTest {
 
     private WebDriver getDriver() {
         ChromeOptions options = new ChromeOptions();
@@ -23,7 +23,8 @@ public class LoginTestcase1 {
         WebDriver driver = getDriver();
         try {
             // 1) Open login page
-            driver.get("https://bankubt.onlinebank.com/AdminHome.aspx"); // ✅ Replace with your actual login URL
+            driver.get("https://bankubt.onlinebank.com/Service/UserManager.aspx"); // ✅ Replace with your actual login
+                                                                                   // URL
 
             // 2) Locate username and password fields using XPath
             WebElement usernameField = driver.findElement(
@@ -43,7 +44,7 @@ public class LoginTestcase1 {
             loginButton.click();
 
             // 6) Assert successful login by checking URL or title
-            assertTrue(driver.getCurrentUrl().contains("/Advanced") || driver.getTitle().contains("Dashboard"),
+            assertTrue(driver.getCurrentUrl().contains("Advanced") || driver.getTitle().contains("Dashboard"),
                     "module-title");
 
         } finally {

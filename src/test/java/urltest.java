@@ -6,7 +6,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class Demo2Test {
+public class urltest {
 
     private WebDriver getDriver() {
         ChromeOptions options = new ChromeOptions();
