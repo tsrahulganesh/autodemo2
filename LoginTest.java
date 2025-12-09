@@ -28,9 +28,9 @@ public class LoginTest {
 
             // 2) Locate username and password fields using XPath
             WebElement usernameField = driver.findElement(
-                    By.xpath("//input[@id='M$layout$content$PCDZ$MW2NO7V$ctl00$webInputForm$txtLoginName']"));
+                    By.xpath("//input[@id='M_layout_content_PCDZ_MMCA7G7_ctl00_webInputForm_txtLoginName']"));
             WebElement passwordField = driver.findElement(
-                    By.xpath("//input[@id='M$layout$content$PCDZ$MW2NO7V$ctl00$webInputForm$txtPassword']"));
+                    By.xpath("//input[@id='M_layout_content_PCDZ_MMCA7G7_ctl00_webInputForm_txtPassword']"));
 
             // 3) Locate login button using XPath (handles spaces in text)
             WebElement loginButton = driver
