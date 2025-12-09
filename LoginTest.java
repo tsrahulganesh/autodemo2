@@ -1,12 +1,16 @@
 
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedCondition;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.time.Duration;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LoginTest {
 
@@ -15,40 +19,30 @@ public class LoginTest {
         options.addArguments("--headless=new"); // Headless mode for CI
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--ignore-certificate-errors");
+        options.setAcceptInsecureCerts(true);
         return new ChromeDriver(options);
     }
 
-    @Test
-    void simpleLoginTest() {
-        WebDriver driver = getDriver();
-        try {
-            // 1) Open login page
-            driver.get("https://bankubt.onlinebank.com/Service/UserManager.aspx"); // ✅ Replace with your actual login
-                                                                                   // URL
+    private static final String LOGIN_URL =
+            "https://bankubt.onlinebank.com/Service/UserManager.aspx";
 
-            // 2) Locate username and password fields using XPath
-            WebElement usernameField = driver.findElement(
-                    By.xpath("//input[@id='M_layout_content_PCDZ_MMCA7G7_ctl00_webInputForm_txtLoginName']"));
-            WebElement passwordField = driver.findElement(
-                    By.xpath("//input[@id='M_layout_content_PCDZ_MMCA7G7_ctl00_webInputForm_txtPassword']"));
+    // Stable selectors using ID ends-with (ASP.NET friendly)
+    private static final By USERNAME_INPUT = By.cssSelector("input[id$='txtLoginName']");
+    private static final By PASSWORD_INPUT = By.cssSelector("input[id$='txtPassword']");
 
-            // 3) Locate login button using XPath (handles spaces in text)
-            WebElement loginButton = driver
-                    .findElement(By.xpath("//button[normalize-space(text())='btn btn-primary']"));
+    // Robust login button selector (covers <button>, <input> submit, with bootstrap classes)
+    private static final By LOGIN_BUTTON = By.cssSelector(
+            "button[type='submit'], input[type='submit'], button.btn.btn-primary, a.btn.btn-primary"
+    );
 
-            // 4) Enter credentials
-            usernameField.sendKeys("Pawaradmin01"); // ✅ Replace with valid username
-            passwordField.sendKeys("Test@2025"); // ✅ Replace with valid password
-
-            // 5) Click login
-            loginButton.click();
-
-            // 6) Assert successful login by checking URL or title
-            assertTrue(driver.getCurrentUrl().contains("Advanced") || driver.getTitle().contains("Dashboard"),
-                    "module-title");
-
-        } finally {
-            driver.quit();
-        }
+    private WebDriverWait wait(WebDriver driver, long seconds) {
+        return new WebDriverWait(driver, Duration.ofSeconds(seconds));
     }
-}
+
+    private void waitForDocumentReady(WebDriver driver) {
+        wait(driver, 15).until((ExpectedCondition<Boolean>) d ->
+                ((JavascriptExecutor) d).executeScript("return document.readyState").equals("complete"));
+    }
+

@@ -3,10 +3,12 @@ import org.junit.jupiter.api.Test;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,22 +19,23 @@ public class Login_invalidTest {
         options.addArguments("--headless=new"); // Headless mode for CI
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--ignore-certificate-errors");
+        options.setAcceptInsecureCerts(true);
         return new ChromeDriver(options);
     }
 
     // --- Common locators (adjust if your app differs) ---
     private static final String LOGIN_URL = "https://bankubt.onlinebank.com/Service/UserManager.aspx";
 
-    private static final By USERNAME_INPUT = By
-            .xpath("//input[@id='M$layout$content$PCDZ$MW2NO7V$ctl00$webInputForm$txtLoginName']");
+    // Stable selectors using ID ends-with (ASP.NET friendly)
+    private static final By USERNAME_INPUT = By.cssSelector("input[id$='txtLoginName']");
+    private static final By PASSWORD_INPUT = By.cssSelector("input[id$='txtPassword']");
 
-    private static final By PASSWORD_INPUT = By
-            .xpath("//input[@id='M$layout$content$PCDZ$MW2NO7V$ctl00$webInputForm$txtPassword']");
-
-    // Prefer a class-based selector for the button; change to exact id/xpath if you
-    // have one
-    private static final By LOGIN_BUTTON = By
-            .cssSelector("button.btn.btn-primary, input.btn.btn-primary, button[type='submit']");
+    // Robust login button selector
+    private static final By LOGIN_BUTTON = By.cssSelector(
+            "button[type='submit'], input[type='submit'], button.btn.btn-primary, a.btn.btn-primary"
+    );
 
     // Optional error indicators (common patterns)
     private static final By[] ERROR_INDICATORS = new By[] {
@@ -42,23 +45,69 @@ public class Login_invalidTest {
             By.xpath("//*[contains(@class,'error') or contains(@class,'danger') or contains(text(),'Invalid')]")
     };
 
-    private void performLogin(WebDriver driver, String user, String pass) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-        driver.get(LOGIN_URL);
+    private WebDriverWait wait(WebDriver driver, long seconds) {
+        return new WebDriverWait(driver, Duration.ofSeconds(seconds));
+    }
 
-        WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(USERNAME_INPUT));
-        WebElement passwordField = wait.until(ExpectedConditions.visibilityOfElementLocated(PASSWORD_INPUT));
-        WebElement loginBtn = wait.until(ExpectedConditions.elementToBeClickable(LOGIN_BUTTON));
+    private void waitForDocumentReady(WebDriver driver) {
+        wait(driver, 15).until((ExpectedCondition<Boolean>) d ->
+                ((JavascriptExecutor) d).executeScript("return document.readyState").equals("complete"));
+    }
+
+    /**
+     * Try default content; if inputs aren't found, iterate iframes and switch into the first one that contains the username field.
+     */
+    private void switchToLoginFrameIfNeeded(WebDriver driver) {
+        driver.switchTo().defaultContent();
+
+        // Try default content first
+        List<WebElement> direct = driver.findElements(USERNAME_INPUT);
+        if (!direct.isEmpty() && direct.get(0).isDisplayed()) {
+            return;
+        }
+
+        // Try all iframes
+        List<WebElement> frames = driver.findElements(By.tagName("iframe"));
+        for (int i = 0; i < frames.size(); i++) {
+            try {
+                driver.switchTo().defaultContent();
+                driver.switchTo().frame(i);
+                if (!driver.findElements(USERNAME_INPUT).isEmpty()) {
+                    return; // Found the right frame
+                }
+            } catch (WebDriverException ignored) {}
+        }
+
+        // If not found in any frame
+        driver.switchTo().defaultContent();
+        throw new NoSuchElementException("Username input not found in default content or any iframe.");
+    }
+
+    private void performLogin(WebDriver driver, String user, String pass) {
+        driver.get(LOGIN_URL);
+        waitForDocumentReady(driver);
+
+        // Switch to frame if required
+        switchToLoginFrameIfNeeded(driver);
+
+        WebElement usernameField = wait(driver, 15)
+                .until(ExpectedConditions.visibilityOfElementLocated(USERNAME_INPUT));
+        WebElement passwordField = wait(driver, 15)
+                .until(ExpectedConditions.visibilityOfElementLocated(PASSWORD_INPUT));
+        WebElement loginBtn = wait(driver, 15)
+                .until(ExpectedConditions.elementToBeClickable(LOGIN_BUTTON));
 
         usernameField.clear();
         passwordField.clear();
-
         usernameField.sendKeys(user);
         passwordField.sendKeys(pass);
         loginBtn.click();
 
         // Small wait for navigation or error rendering
-        wait.withTimeout(Duration.ofSeconds(5));
+        try {
+            wait(driver, 5).until((ExpectedCondition<Boolean>) d ->
+                    ((JavascriptExecutor) d).executeScript("return document.readyState").equals("complete"));
+        } catch (TimeoutException ignored) {}
     }
 
     private boolean isInvalidLogin(WebDriver driver) {
@@ -74,16 +123,14 @@ public class Login_invalidTest {
                     errorShown = true;
                     break;
                 }
-            } catch (NoSuchElementException ignored) {
-            }
+            } catch (NoSuchElementException ignored) {}
         }
 
         // Criterion 3: Did NOT reach dashboard/advanced page
         boolean notOnDashboard = !(driver.getCurrentUrl().contains("Advanced")
                 || driver.getTitle().toLowerCase().contains("dashboard"));
 
-        // Treat invalid login as any combination that indicates failure to navigate +
-        // error or same page
+        // Treat invalid login as any combination that indicates failure to navigate + error or same page
         return (stayedOnLogin || errorShown) && notOnDashboard;
     }
 
@@ -95,10 +142,10 @@ public class Login_invalidTest {
         WebDriver driver = getDriver();
         try {
             performLogin(driver, "Pawaradmin00", "Test@2025"); // wrong username, correct password
-
             assertTrue(
                     isInvalidLogin(driver),
-                    "Expected invalid login for wrong username, but navigation suggests success.");
+                    "Expected invalid login for wrong username, but navigation suggests success. URL: "
+                            + driver.getCurrentUrl() + " Title: " + driver.getTitle());
         } finally {
             driver.quit();
         }
@@ -112,10 +159,10 @@ public class Login_invalidTest {
         WebDriver driver = getDriver();
         try {
             performLogin(driver, "Pawaradmin01", "Test@2024"); // correct username, wrong password
-
             assertTrue(
                     isInvalidLogin(driver),
-                    "Expected invalid login for wrong password, but navigation suggests success.");
+                    "Expected invalid login for wrong password, but navigation suggests success. URL: "
+                            + driver.getCurrentUrl() + " Title: " + driver.getTitle());
         } finally {
             driver.quit();
         }
@@ -129,10 +176,10 @@ public class Login_invalidTest {
         WebDriver driver = getDriver();
         try {
             performLogin(driver, "", ""); // both blank
-
             assertTrue(
                     isInvalidLogin(driver),
-                    "Expected invalid login for blank credentials, but navigation suggests success.");
+                    "Expected invalid login for blank credentials, but navigation suggests success. URL: "
+                            + driver.getCurrentUrl() + " Title: " + driver.getTitle());
         } finally {
             driver.quit();
         }
