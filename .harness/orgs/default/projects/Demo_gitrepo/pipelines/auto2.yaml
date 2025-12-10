@@ -8,7 +8,7 @@ pipeline:
     ci:
       codebase:
         connectorRef: rrahul
-        repoName: autodemo2
+        repoName: auto-demo-round2
         build: <+input>
   stages:
     - stage:
